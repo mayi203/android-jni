@@ -37,8 +37,10 @@ public class CameraPreview implements PreviewCallback {
 		Log.i(TAG, "open: " + num);
 		num = 8;
 		Log.i(TAG, "Direction: " + direction);
-
 		try {
+			if (camera != null) {
+				camera.release();
+			}
 			camera = Camera.open();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -64,7 +66,7 @@ public class CameraPreview implements PreviewCallback {
 			for (int i = 0; i < 5; i++) {
 				camera.addCallbackBuffer(new byte[bufSize]);
 			}
-			camera.setDisplayOrientation(90);
+			// camera.setDisplayOrientation(90);
 			camera.setPreviewCallbackWithBuffer(this);
 			camera.startPreview();
 		} catch (IOException e) {
@@ -76,6 +78,16 @@ public class CameraPreview implements PreviewCallback {
 	public boolean stop() {
 		Log.i(TAG, "stop: " + num);
 		num = 7;
+		if (camera != null) {
+			camera.stopPreview();
+			try {
+				camera.setPreviewTexture(null);
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			camera.release();
+			camera = null;
+		}
 		return true;
 	}
 

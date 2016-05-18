@@ -13,7 +13,7 @@ static jobject surface = NULL;
 #define  LOGI(...)  __android_log_print(ANDROID_LOG_INFO,LOG_TAG,__VA_ARGS__)
 #define  LOGE(...)  __android_log_print(ANDROID_LOG_ERROR,LOG_TAG,__VA_ARGS__)
 
-GLuint textureId;
+GLuint textureId = -1;
 GLuint mProgram;
 GLuint mPositionHandle;
 GLuint mTextureCoordHandle;
@@ -27,19 +27,19 @@ const GLfloat textureVertices[] = { 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f, 0.0f,
 const GLshort drawOrder[] = { 0, 1, 2, 0, 2, 3 };
 
 auto vertexShader = "attribute vec4 vPosition;\n"
-        "attribute vec2 inputTextureCoordinate;\n"
-        "varying vec2 textureCoordinate;\n"
-        "void main(){\n"
-            "gl_Position = vPosition;\n"
-            "textureCoordinate = inputTextureCoordinate;\n"
-        "}";
-auto fragShader ="#extension GL_OES_EGL_image_external : require\n"
-        "precision mediump float;\n"
-        "varying vec2 textureCoordinate;\n"
-        "uniform samplerExternalOES s_texture;\n"
-        "void main() {\n"
-        "  gl_FragColor = texture2D( s_texture, textureCoordinate );\n"
-        "}";
+		"attribute vec2 inputTextureCoordinate;\n"
+		"varying vec2 textureCoordinate;\n"
+		"void main(){\n"
+		"gl_Position = vPosition;\n"
+		"textureCoordinate = inputTextureCoordinate;\n"
+		"}";
+auto fragShader = "#extension GL_OES_EGL_image_external : require\n"
+		"precision mediump float;\n"
+		"varying vec2 textureCoordinate;\n"
+		"uniform samplerExternalOES s_texture;\n"
+		"void main() {\n"
+		"  gl_FragColor = texture2D( s_texture, textureCoordinate );\n"
+		"}";
 
 static void checkGlError(const char* op) {
 	for (GLint error = glGetError(); error; error = glGetError()) {
@@ -144,7 +144,6 @@ void renderFrame() {
 	// Enable a handle to the triangle vertices
 	glEnableVertexAttribArray(mPositionHandle);
 	//checkGlError("glEnableVertexAttribArray");
-	// Prepare the <insert shape here> coordinate data
 	glVertexAttribPointer(mPositionHandle, 2, GL_FLOAT, GL_FALSE, 0,
 			squareCoords);
 	checkGlError("glVertexAttribPointer1");
@@ -155,7 +154,6 @@ void renderFrame() {
 	//checkGlError("glVertexAttribPointer2");
 	glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, drawOrder);
 	//checkGlError("glDrawElements");
-	// Disable vertex array
 	glDisableVertexAttribArray(mPositionHandle);
 	glDisableVertexAttribArray(mTextureCoordHandle);
 }
@@ -208,7 +206,7 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1init(
 		LOGI("AllocObject");
 	}
 	jint result = env->CallIntMethod(cameraObj, camera_open, direction);
-	LOGI("call method");
+	LOGI("call method open");
 	if (result == 0) {
 		return true;
 	} else {
@@ -222,7 +220,9 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1start(
 		LOGI("%s", "class_CameraPre=NULL");
 	}
 	LOGI("find class");
-	textureId = createTextureID();
+	if (textureId == -1) {
+		textureId = createTextureID();
+	}
 	LOGI("textureId = %d", textureId);
 	jclass class_surface = env->FindClass("android/graphics/SurfaceTexture");
 	if (class_surface == NULL) {
@@ -251,7 +251,7 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1start(
 	jboolean result = env->CallBooleanMethod(cameraObj, camera_start, surface);
 
 	setupGraphics(width, height);
-	LOGI("call method");
+	LOGI("call method start");
 	return result;
 }
 JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1stop(
@@ -272,6 +272,17 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1stop(
 		LOGI("AllocObject");
 	}
 	jboolean result = env->CallBooleanMethod(cameraObj, camera_stop);
+	if (surface != NULL) {
+		env->DeleteGlobalRef(surface);
+		surface = NULL;
+	}
+	if (cameraObj != NULL) {
+		env->DeleteGlobalRef(cameraObj);
+		cameraObj = NULL;
+	}
+	if (mgr != NULL) {
+		mgr = NULL;
+	}
 	LOGI("call method");
 	return result;
 }
@@ -283,20 +294,21 @@ JNIEXPORT void JNICALL Java_com_mayi_jni_1l3_JNILib_step(JNIEnv * env, jclass) {
 	if (class_surface == NULL) {
 		LOGI("%s", "class_surface=NULL");
 	}
-	LOGI("find class surface");
 	jmethodID updateTexImage = env->GetMethodID(class_surface, "updateTexImage",
 			"()V");
 	if (updateTexImage == NULL) {
 		LOGI("%s", "updateTexImage==NULL");
 	}
-	env->CallVoidMethod(surface, updateTexImage);
+	if (surface != NULL)
+		env->CallVoidMethod(surface, updateTexImage);
 	jmethodID getTransformMatrix = env->GetMethodID(class_surface,
 			"getTransformMatrix", "([F)V");
 	if (getTransformMatrix == NULL) {
 		LOGI("%s", "getTransformMatrix==NULL");
 	}
 	jfloatArray array = env->NewFloatArray(16);
-	env->CallVoidMethod(surface, getTransformMatrix, array);
+	if (surface != NULL)
+		env->CallVoidMethod(surface, getTransformMatrix, array);
 	glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 	renderFrame();
