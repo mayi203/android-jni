@@ -5,6 +5,7 @@ import android.content.res.AssetManager;
 public class JNILib {
 	static {
 		System.loadLibrary("JNI_L3");
+		System.loadLibrary("opencv_java");
 	}
 
 	public static native void init(AssetManager asset);

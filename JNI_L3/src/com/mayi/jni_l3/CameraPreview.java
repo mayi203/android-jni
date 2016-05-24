@@ -10,7 +10,6 @@ import android.hardware.Camera.PreviewCallback;
 import android.hardware.Camera.Size;
 import android.util.Log;
 
-@SuppressWarnings("deprecation")
 public class CameraPreview implements PreviewCallback {
 
 	final static String TAG = "CameraPreview";
@@ -66,7 +65,6 @@ public class CameraPreview implements PreviewCallback {
 			for (int i = 0; i < 5; i++) {
 				camera.addCallbackBuffer(new byte[bufSize]);
 			}
-			// camera.setDisplayOrientation(90);
 			camera.setPreviewCallbackWithBuffer(this);
 			camera.startPreview();
 		} catch (IOException e) {

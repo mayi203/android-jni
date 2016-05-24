@@ -1,10 +1,14 @@
 #include "com_mayi_jni_l3_JNILib.h"
 #include <android/log.h>
 #include <stdlib.h>
+#include <string.h>
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 #include <android/asset_manager_jni.h>
 #include <android/asset_manager.h>
+
+#include <opencv2/opencv.hpp>
+using namespace cv;
 
 static AAssetManager* mgr = NULL;
 static jobject cameraObj = NULL;
@@ -194,19 +198,16 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1init(
 	if (class_CameraPre == NULL) {
 		LOGI("%s", "class_CameraPre=NULL");
 	}
-	LOGI("find class");
 	jmethodID camera_open = env->GetMethodID(class_CameraPre, "open", "(I)I");
 	if (camera_open == NULL) {
 		LOGI("%s", "camera_open=NULL");
 	}
-	LOGI("find method");
 	if (cameraObj == NULL) {
 		jobject obj = env->AllocObject(class_CameraPre);
 		cameraObj = env->NewGlobalRef(obj);
 		LOGI("AllocObject");
 	}
 	jint result = env->CallIntMethod(cameraObj, camera_open, direction);
-	LOGI("call method open");
 	if (result == 0) {
 		return true;
 	} else {
@@ -219,16 +220,13 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1start(
 	if (class_CameraPre == NULL) {
 		LOGI("%s", "class_CameraPre=NULL");
 	}
-	LOGI("find class");
 	if (textureId == -1) {
 		textureId = createTextureID();
 	}
-	LOGI("textureId = %d", textureId);
 	jclass class_surface = env->FindClass("android/graphics/SurfaceTexture");
 	if (class_surface == NULL) {
 		LOGI("%s", "class_surface=NULL");
 	}
-	LOGI("find class surface");
 	jmethodID sufaceTexture = env->GetMethodID(class_surface, "<init>", "(I)V");
 
 	if (surface == NULL) {
@@ -242,7 +240,6 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1start(
 	if (camera_start == NULL) {
 		LOGI("%s", "camera_start=NULL");
 	}
-	LOGI("find method");
 	if (cameraObj == NULL) {
 		jobject obj = env->AllocObject(class_CameraPre);
 		cameraObj = env->NewGlobalRef(obj);
@@ -251,7 +248,6 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1start(
 	jboolean result = env->CallBooleanMethod(cameraObj, camera_start, surface);
 
 	setupGraphics(width, height);
-	LOGI("call method start");
 	return result;
 }
 JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1stop(
@@ -260,12 +256,10 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1stop(
 	if (class_CameraPre == NULL) {
 		LOGI("%s", "class_CameraPre=NULL");
 	}
-	LOGI("find class");
 	jmethodID camera_stop = env->GetMethodID(class_CameraPre, "stop", "()Z");
 	if (camera_stop == NULL) {
 		LOGI("%s", "camera_stop=NULL");
 	}
-	LOGI("find method");
 	if (cameraObj == NULL) {
 		jobject obj = env->AllocObject(class_CameraPre);
 		cameraObj = env->NewGlobalRef(obj);
@@ -283,11 +277,32 @@ JNIEXPORT jboolean JNICALL Java_com_mayi_jni_1l3_JNILib_CameraDevice_1stop(
 	if (mgr != NULL) {
 		mgr = NULL;
 	}
-	LOGI("call method");
 	return result;
 }
 JNIEXPORT void JNICALL Java_com_mayi_jni_1l3_JNILib_newFrameAvailable(
 		JNIEnv * env, jclass, jint width, jint height, jbyteArray data) {
+	//cv::Mat _yuv(height+height/2,width,CV_8UC1,(uchar *)data);
+	//cv::cvtColor(_yuv,_yuv,CV_YUV2RGBA_NV21);
+	// Get native access to the given Java arrays.
+	jintArray rgba = env->NewIntArray(width * height);
+	jbyte* _yuv = env->GetByteArrayElements(data, 0);
+	jint* _bgra = env->GetIntArrayElements(rgba, 0);
+
+	// Prepare a cv::Mat that points to the YUV420sp data.
+	Mat myuv(height + height / 2, width, CV_8UC1, (uchar *) _yuv);
+	// Prepare a cv::Mat that points to the BGRA output data.
+	Mat mbgra(height, width, CV_8UC4, (uchar *) _bgra);
+
+	// Convert the color format from the camera's
+	// NV21 "YUV420sp" format to an Android BGRA color image.
+	cvtColor(myuv, mbgra, CV_YUV420sp2BGRA);
+	// OpenCV can now access/modify the BGRA image if we want ...
+	// Release the native lock we placed on the Java arrays.
+	string path="/sdcard/andimg/img2.jpg";
+	imwrite(path,mbgra);
+	env->ReleaseIntArrayElements(rgba, _bgra, 0);
+	env->ReleaseByteArrayElements(data, _yuv, 0);
+
 }
 JNIEXPORT void JNICALL Java_com_mayi_jni_1l3_JNILib_step(JNIEnv * env, jclass) {
 	jclass class_surface = env->FindClass("android/graphics/SurfaceTexture");
